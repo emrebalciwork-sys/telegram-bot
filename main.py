@@ -21,7 +21,7 @@ def check_with_ai(message):
             json={
                 "model": "google/gemini-2.5-flash",
                 "messages": [
-                    {"role": "system", "content": "Sana gelen mesajda bir telefon numarası varsa SADECE o telefon numarası formatını yaz (Örn: 05xxxxxxxxx). Mesajda telefon numarası kesinlikle yoksa sadece 'YOK' yaz. Başka hiçbir şey yazma."},
+                    {"role": "system", "content": "Sana gelen metinde bir telefon numarası varsa SADECE o telefon numarasını yaz (Örn: 05xxxxxxxxx). Kesinlikle yoksa sadece 'YOK' yaz."},
                     {"role": "user", "content": message}
                 ]
             }
@@ -34,17 +34,16 @@ def check_with_ai(message):
 @app.route('/webhook', methods=['POST'])
 def webhook():
     try:
-        data = request.json
-        if not data:
-            return 'No Data', 400
-            
-        message_text = data.get('message', {}).get('text', '') or data.get('text', '') or str(data)
-        sender_name = data.get('sender', {}).get('name', '') or data.get('username', 'Bir Kullanıcı')
+        # Gelen veriyi ham metin (string) olarak tamamen alıyoruz
+        # Böylece SOCIFLY ne gönderirse göndersin sistem kaçırmayacak
+        raw_data = request.get_data(as_text=True)
+        print("Gelen Ham Veri:", raw_data) # Render loglarında görmek için
         
-        if any(char.isdigit() for char in message_text):
-            ai_result = check_with_ai(message_text)
+        # Metnin içinde herhangi bir yerde peş peşe rakamlar (telefon formatı) var mı?
+        if any(char.isdigit() for char in raw_data):
+            ai_result = check_with_ai(raw_data)
             if ai_result:
-                bildirim = f"📱 [Ücretsiz Sistem] Telefon Numarası Yakalandı!\n\n👤 Müşteri: {sender_name}\n📞 Numara: {ai_result}\n💬 Mesaj: {message_text}"
+                bildirim = f"📱 Telefon Numarası Yakalandı!\n\n📞 Numara: {ai_result}\n💬 Gelen Detay: {raw_data[:300]}"
                 send_telegram(bildirim)
     except Exception as e:
         print("Hata:", str(e))
